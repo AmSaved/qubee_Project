@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qubee Voice to Text</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'voice_app/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Qubee Afan Oromo Voice to Text</h1>
+        <p class="subtitle">Convert your voice to Qubee text</p>
+        
+        <!-- Record Section -->
+        <div class="section">
+            <h2>1. Record Voice</h2>
+            <div class="buttons">
+                <button id="recordBtn" class="btn btn-record">
+                    <span class="icon">🎤</span> Start Recording
+                </button>
+                <button id="stopBtn" class="btn btn-stop" disabled>
+                    <span class="icon">⏹️</span> Stop
+                </button>
+            </div>
+            <div id="recordStatus" class="status">
+                Ready to record
+            </div>
+        </div>
+        
+        <!-- Upload Section -->
+        <div class="section">
+            <h2>2. Upload Audio File</h2>
+            <div class="upload-area">
+                <input type="file" id="audioFile" accept="audio/*" class="file-input">
+                <label for="audioFile" class="btn btn-upload">
+                    <span class="icon">📁</span> Choose File
+                </label>
+                <span id="fileName">No file selected</span>
+                <button id="uploadBtn" class="btn btn-convert" disabled>
+                    Convert File
+                </button>
+            </div>
+        </div>
+        
+        <!-- Result Section -->
+        <div class="section result-section">
+            <h2>3. Converted Text</h2>
+            <div id="result" class="result-box">
+                Text will appear here...
+            </div>
+            <button id="copyBtn" class="btn btn-copy" style="display: none;">
+                📋 Copy Text
+            </button>
+        </div>
+        
+        <!-- Status -->
+        <div class="status-info">
+            <div id="modelStatus">🔵 Model: Loading...</div>
+            <div id="connectionStatus">🟢 Connection: Ready</div>
+        </div>
+    </div>
+    
+    <script src="{% static 'voice_app/script.js' %}"></script>
+</body>
+</html>
