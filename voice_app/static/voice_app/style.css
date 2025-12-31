@@ -1,15 +1,9 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
-    padding: 20px;
-    color: #333;
 }
 
 .container {
@@ -18,192 +12,126 @@ body {
     background: white;
     border-radius: 15px;
     padding: 30px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
 
 h1 {
-    color: #4f46e5;
+    color: #4a5568;
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
     font-size: 2.2rem;
 }
 
-.subtitle {
-    text-align: center;
-    color: #666;
-    margin-bottom: 30px;
-    font-size: 1.1rem;
-}
-
-.section {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+.card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
     border-radius: 10px;
     padding: 25px;
-    margin-bottom: 25px;
+    margin: 25px 0;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
 }
 
 h2 {
-    color: #4f46e5;
+    color: #495057;
+    margin-top: 0;
     margin-bottom: 20px;
     font-size: 1.4rem;
 }
 
-.buttons {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 15px;
-}
-
-.btn {
-    padding: 12px 25px;
+button {
+    padding: 12px 24px;
+    margin: 5px;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
+    cursor: pointer;
     font-size: 16px;
     font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    transition: all 0.2s;
 }
 
-.btn:hover {
+button:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
-.btn:disabled {
+button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
 }
 
-.btn-record {
-    background: #10b981;
+#recordBtn {
+    background: #28a745;
     color: white;
 }
 
-.btn-record:hover {
-    background: #059669;
-}
-
-.btn-stop {
-    background: #ef4444;
+#stopBtn {
+    background: #dc3545;
     color: white;
 }
 
-.btn-stop:hover {
-    background: #dc2626;
-}
-
-.btn-upload {
-    background: #3b82f6;
+#uploadBtn {
+    background: #007bff;
     color: white;
 }
 
-.btn-upload:hover {
-    background: #2563eb;
+#copyBtn {
+    background: #ffc107;
+    color: #212529;
 }
 
-.btn-convert {
-    background: #8b5cf6;
-    color: white;
-}
-
-.btn-convert:hover {
-    background: #7c3aed;
-}
-
-.btn-copy {
-    background: #f59e0b;
-    color: white;
-    margin-top: 15px;
-}
-
-.btn-copy:hover {
-    background: #d97706;
-}
-
-.status {
+input[type="file"] {
     padding: 10px;
-    background: #e2e8f0;
+    border: 2px dashed #6c757d;
     border-radius: 6px;
-    font-size: 14px;
-    color: #4a5568;
-}
-
-.upload-area {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex-wrap: wrap;
-}
-
-.file-input {
-    display: none;
-}
-
-#fileName {
-    color: #666;
-    font-style: italic;
-}
-
-.result-section {
-    background: #f0f9ff;
-    border-color: #dbeafe;
+    width: 100%;
+    margin: 10px 0;
 }
 
 .result-box {
-    background: white;
-    border: 2px solid #dbeafe;
-    border-radius: 8px;
+    min-height: 150px;
     padding: 20px;
-    min-height: 120px;
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    margin: 15px 0;
     font-size: 18px;
     line-height: 1.6;
-    color: #1e293b;
     white-space: pre-wrap;
     word-wrap: break-word;
+    overflow-y: auto;
 }
 
-.status-info {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #e2e8f0;
+.info {
+    background: #e7f3ff;
+    border-color: #b8daff;
+}
+
+.info h3 {
+    color: #004085;
+}
+
+#recordStatus, #fileStatus {
+    margin-top: 10px;
+    padding: 8px;
+    border-radius: 4px;
     font-size: 14px;
-    color: #666;
-}
-
-.recording {
-    animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
 }
 
 @media (max-width: 600px) {
     .container {
-        padding: 20px;
+        padding: 15px;
     }
     
-    .buttons, .upload-area {
-        flex-direction: column;
+    .card {
+        padding: 15px;
     }
     
-    .btn {
+    button {
         width: 100%;
-        justify-content: center;
-    }
-    
-    .status-info {
-        flex-direction: column;
-        gap: 10px;
+        margin: 5px 0;
     }
 }

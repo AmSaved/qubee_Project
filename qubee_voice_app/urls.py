@@ -1,13 +1,8 @@
-from django.contrib import admin
-from django.urls import path, include
-from django.conf import settings
-from django.conf.urls.static import static
+from django.urls import path
+from voice_app import views
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('voice_app.urls')),
+    path('', views.home, name='home'),
+    path('convert/', views.convert_voice, name='convert_voice'),
+    path('upload/', views.upload_voice, name='upload_voice'),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

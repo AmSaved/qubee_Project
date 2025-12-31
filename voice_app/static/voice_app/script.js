@@ -1,21 +1,3 @@
-// DOM Elements
-const recordBtn = document.getElementById('recordBtn');
-const stopBtn = document.getElementById('stopBtn');
-const audioFile = document.getElementById('audioFile');
-const uploadBtn = document.getElementById('uploadBtn');
-const resultDiv = document.getElementById('result');
-const copyBtn = document.getElementById('copyBtn');
-const fileName = document.getElementById('fileName');
-const recordStatus = document.getElementById('recordStatus');
-const modelStatus = document.getElementById('modelStatus');
-const connectionStatus = document.getElementById('connectionStatus');
-
-// Recording variables
-let mediaRecorder;
-let audioChunks = [];
-let isRecording = false;
-
-// Get CSRF token for Django
 function getCSRFToken() {
     const name = 'csrftoken';
     let cookieValue = null;
@@ -32,37 +14,42 @@ function getCSRFToken() {
     return cookieValue;
 }
 
-// Update model status
-async function checkModelStatus() {
-    try {
-        modelStatus.textContent = '✅ Model: Loaded';
-        modelStatus.style.color = '#10b981';
-    } catch (error) {
-        modelStatus.textContent = '⚠️ Model: Check server';
-        modelStatus.style.color = '#ef4444';
+let mediaRecorder = null;
+let audioChunks = [];
+
+// Update UI state
+function updateUI(state, message) {
+    const recordBtn = document.getElementById('recordBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const recordStatus = document.getElementById('recordStatus');
+    
+    if (state === 'recording') {
+        recordBtn.disabled = true;
+        stopBtn.disabled = false;
+        recordStatus.textContent = message || '🎤 Recording... Speak now!';
+        recordStatus.style.color = '#d9534f';
+    } else if (state === 'processing') {
+        recordBtn.disabled = true;
+        stopBtn.disabled = true;
+        recordStatus.textContent = message || '🔄 Processing audio...';
+        recordStatus.style.color = '#5bc0de';
+    } else {
+        recordBtn.disabled = false;
+        stopBtn.disabled = true;
+        recordStatus.textContent = message || 'Ready to record';
+        recordStatus.style.color = '#5cb85c';
     }
 }
 
-// File selection handler
-audioFile.addEventListener('change', function() {
-    if (this.files.length > 0) {
-        const file = this.files[0];
-        fileName.textContent = file.name;
-        uploadBtn.disabled = false;
-    } else {
-        fileName.textContent = 'No file selected';
-        uploadBtn.disabled = true;
-    }
-});
-
 // Start recording
-recordBtn.addEventListener('click', async () => {
+document.getElementById('recordBtn').addEventListener('click', async () => {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
+                sampleRate: 16000,
+                channelCount: 1,
                 echoCancellation: true,
-                noiseSuppression: true,
-                sampleRate: 16000
+                noiseSuppression: true
             }
         });
         
@@ -75,79 +62,87 @@ recordBtn.addEventListener('click', async () => {
         
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            await sendAudio(audioBlob, 'recorded');
+            await sendAudioToServer(audioBlob, '/convert/');
             stream.getTracks().forEach(track => track.stop());
-            
-            // Reset UI
-            recordBtn.disabled = false;
-            stopBtn.disabled = true;
-            recordStatus.textContent = 'Recording stopped';
+            updateUI('ready', '✅ Recording complete');
         };
         
         mediaRecorder.start();
-        isRecording = true;
-        
-        // Update UI
-        recordBtn.disabled = true;
-        stopBtn.disabled = false;
-        recordStatus.textContent = '🎤 Recording... Speak now!';
-        recordStatus.classList.add('recording');
+        updateUI('recording');
         
     } catch (error) {
         console.error('Microphone error:', error);
-        recordStatus.textContent = '❌ Error accessing microphone';
-        recordStatus.style.color = '#ef4444';
+        updateUI('ready', '❌ Microphone access denied');
+        alert('Please allow microphone access to record voice.');
     }
 });
 
 // Stop recording
-stopBtn.addEventListener('click', () => {
-    if (mediaRecorder && isRecording) {
+document.getElementById('stopBtn').addEventListener('click', () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
-        isRecording = false;
-        recordStatus.classList.remove('recording');
+        updateUI('processing');
     }
 });
 
-// Upload file
-uploadBtn.addEventListener('click', async () => {
-    if (audioFile.files.length === 0) {
-        showResult('Please select a file first', 'error');
+// File upload
+document.getElementById('uploadBtn').addEventListener('click', async () => {
+    const fileInput = document.getElementById('audioFile');
+    const fileStatus = document.getElementById('fileStatus');
+    
+    if (fileInput.files.length === 0) {
+        fileStatus.textContent = '❌ Please select a file first';
+        fileStatus.style.color = '#d9534f';
         return;
     }
     
-    const file = audioFile.files[0];
+    const file = fileInput.files[0];
     
     // Validate file
-    if (file.size > 20 * 1024 * 1024) {
-        showResult('File too large (max 20MB)', 'error');
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        fileStatus.textContent = '❌ File too large (max 50MB)';
+        fileStatus.style.color = '#d9534f';
         return;
     }
     
-    if (!file.type.startsWith('audio/')) {
-        showResult('Please select an audio file', 'error');
-        return;
-    }
+    fileStatus.textContent = '🔄 Processing...';
+    fileStatus.style.color = '#5bc0de';
     
-    await sendAudio(file, 'uploaded');
+    await sendAudioToServer(file, '/upload/');
+    
+    fileStatus.textContent = `✅ ${file.name} processed`;
+    fileStatus.style.color = '#5cb85c';
+});
+
+// File input change
+document.getElementById('audioFile').addEventListener('change', function() {
+    const fileStatus = document.getElementById('fileStatus');
+    if (this.files.length > 0) {
+        const file = this.files[0];
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        fileStatus.textContent = `📄 Selected: ${file.name} (${sizeMB} MB)`;
+        fileStatus.style.color = '#5bc0de';
+    } else {
+        fileStatus.textContent = 'No file selected';
+        fileStatus.style.color = '#6c757d';
+    }
 });
 
 // Send audio to server
-async function sendAudio(audioData, type) {
-    const formData = new FormData();
-    
-    if (type === 'recorded') {
-        formData.append('audio_data', audioData, 'recording.wav');
-    } else {
-        formData.append('voice_file', audioData);
-    }
+async function sendAudioToServer(audioData, endpoint) {
+    const resultDiv = document.getElementById('result');
+    const copyBtn = document.getElementById('copyBtn');
     
     // Show loading
-    showResult('Processing... Please wait', 'loading');
+    resultDiv.textContent = '🔄 Converting audio to Qubee text...';
+    resultDiv.style.color = '#5bc0de';
     copyBtn.style.display = 'none';
     
+    const formData = new FormData();
+    const fieldName = endpoint === '/convert/' ? 'audio_data' : 'voice_file';
+    formData.append(fieldName, audioData, 'audio.wav');
+    
     try {
-        const endpoint = type === 'recorded' ? '/convert/' : '/upload/';
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -159,55 +154,38 @@ async function sendAudio(audioData, type) {
         const data = await response.json();
         
         if (data.success) {
-            showResult(data.text, 'success');
+            resultDiv.textContent = data.text;
+            resultDiv.style.color = '#5cb85c';
             copyBtn.style.display = 'block';
         } else {
-            showResult(data.error || 'Conversion failed', 'error');
+            resultDiv.textContent = `❌ Error: ${data.error}`;
+            resultDiv.style.color = '#d9534f';
         }
         
     } catch (error) {
-        console.error('Error:', error);
-        showResult('Network error. Please try again.', 'error');
-    }
-}
-
-// Show result
-function showResult(text, type) {
-    resultDiv.textContent = text;
-    
-    if (type === 'success') {
-        resultDiv.style.color = '#10b981';
-        resultDiv.style.borderColor = '#10b981';
-    } else if (type === 'error') {
-        resultDiv.style.color = '#ef4444';
-        resultDiv.style.borderColor = '#ef4444';
-    } else if (type === 'loading') {
-        resultDiv.style.color = '#3b82f6';
-        resultDiv.style.borderColor = '#3b82f6';
+        console.error('Network error:', error);
+        resultDiv.textContent = '❌ Network error. Please try again.';
+        resultDiv.style.color = '#d9534f';
     }
 }
 
 // Copy text to clipboard
-copyBtn.addEventListener('click', () => {
-    const text = resultDiv.textContent;
+document.getElementById('copyBtn').addEventListener('click', async () => {
+    const text = document.getElementById('result').textContent;
+    const copyBtn = document.getElementById('copyBtn');
     
-    navigator.clipboard.writeText(text).then(() => {
-        const original = copyBtn.textContent;
+    try {
+        await navigator.clipboard.writeText(text);
+        const originalText = copyBtn.textContent;
         copyBtn.textContent = '✅ Copied!';
-        copyBtn.style.background = '#10b981';
+        copyBtn.style.background = '#5cb85c';
         
         setTimeout(() => {
-            copyBtn.textContent = original;
+            copyBtn.textContent = originalText;
             copyBtn.style.background = '';
         }, 2000);
-    }).catch(err => {
-        console.error('Copy failed:', err);
-        showResult('Failed to copy text', 'error');
-    });
-});
-
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    checkModelStatus();
-    console.log('Qubee Voice Converter loaded');
+    } catch (error) {
+        console.error('Copy failed:', error);
+        alert('Failed to copy text to clipboard.');
+    }
 });
