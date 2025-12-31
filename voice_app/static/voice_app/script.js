@@ -168,7 +168,75 @@ async function sendAudioToServer(audioData, endpoint) {
         resultDiv.style.color = '#d9534f';
     }
 }
+// Check model status on page load
+async function checkModelStatus() {
+    try {
+        const response = await fetch('/status/');
+        const data = await response.json();
+        
+        const modelStatus = document.getElementById('modelStatus');
+        if (data.model_loaded) {
+            modelStatus.textContent = '✅ Loaded';
+            modelStatus.className = 'status-value ready';
+        } else {
+            modelStatus.textContent = '❌ Error';
+            modelStatus.className = 'status-value error';
+        }
+    } catch (error) {
+        console.error('Failed to check model status:', error);
+        const modelStatus = document.getElementById('modelStatus');
+        modelStatus.textContent = '❌ Offline';
+        modelStatus.className = 'status-value error';
+    }
+}
 
+// Check server connection
+async function checkServerConnection() {
+    try {
+        const response = await fetch('/test/');
+        const data = await response.json();
+        
+        const serverStatus = document.getElementById('serverStatus');
+        if (data.success) {
+            serverStatus.textContent = '✅ Connected';
+            serverStatus.className = 'status-value ready';
+        } else {
+            serverStatus.textContent = '❌ Error';
+            serverStatus.className = 'status-value error';
+        }
+    } catch (error) {
+        console.error('Server check failed:', error);
+        const serverStatus = document.getElementById('serverStatus');
+        serverStatus.textContent = '❌ Offline';
+        serverStatus.className = 'status-value error';
+    }
+}
+
+// Check microphone permission
+async function checkMicrophonePermission() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const micStatus = document.getElementById('micStatus');
+        micStatus.textContent = '✅ Ready';
+        micStatus.className = 'status-value ready';
+        stream.getTracks().forEach(track => track.stop());
+    } catch (error) {
+        console.error('Microphone check failed:', error);
+        const micStatus = document.getElementById('micStatus');
+        micStatus.textContent = '❌ Denied';
+        micStatus.className = 'status-value error';
+    }
+}
+
+// Initialize checks on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkModelStatus();
+    checkServerConnection();
+    checkMicrophonePermission();
+    
+    // Update status every 30 seconds
+    setInterval(checkModelStatus, 30000);
+});
 // Copy text to clipboard
 document.getElementById('copyBtn').addEventListener('click', async () => {
     const text = document.getElementById('result').textContent;

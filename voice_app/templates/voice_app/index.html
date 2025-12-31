@@ -38,6 +38,25 @@
             <div id="recordStatus">Click "Start Recording" to begin</div>
         </div>
         
+
+        <!-- Model Status Card -->
+<div class="card status-card">
+    <h2>🔧 System Status</h2>
+    <div id="systemStatus">
+        <div class="status-item">
+            <span class="status-label">Model:</span>
+            <span id="modelStatus" class="status-value loading">Checking...</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Server:</span>
+            <span id="serverStatus" class="status-value">Connected</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Microphone:</span>
+            <span id="micStatus" class="status-value">Ready</span>
+        </div>
+    </div>
+</div>
         <div class="card">
             <h2>2. Upload Audio File</h2>
             <input type="file" id="audioFile" accept="audio/*, .wav, .mp3, .m4a">

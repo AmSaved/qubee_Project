@@ -1,8 +1,12 @@
-from django.urls import path
-from voice_app import views
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
-    path('', views.home, name='home'),
-    path('convert/', views.convert_voice, name='convert_voice'),
-    path('upload/', views.upload_voice, name='upload_voice'),
+    # Include all URLs from the voice_app
+    path('', include('voice_app.urls')),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

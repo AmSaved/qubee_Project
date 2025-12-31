@@ -62,7 +62,47 @@ button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
+.status-card {
+    background: #e8f4fd;
+    border: 1px solid #b6d4fe;
+}
 
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 8px 0;
+    padding: 8px;
+    background: white;
+    border-radius: 4px;
+}
+
+.status-label {
+    font-weight: bold;
+    color: #495057;
+}
+
+.status-value {
+    font-weight: 600;
+}
+
+.status-value.ready {
+    color: #28a745;
+}
+
+.status-value.error {
+    color: #dc3545;
+}
+
+.status-value.loading {
+    color: #ffc107;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
 #recordBtn {
     background: #28a745;
     color: white;
