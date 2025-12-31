@@ -1,94 +1,663 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Qubee Voice to Text</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qubee Afan Oromo Voice to Text</title>
     <style>
-        .model-status {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #4a5568;
             text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.2rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .status-card {
+            background: #e8f4fd;
+            border: 1px solid #b6d4fe;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .status-card h2 {
+            color: #0d6efd;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .status-label {
             font-weight: bold;
+            color: #495057;
         }
-        .model-loaded {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+
+        .status-value {
+            font-weight: 600;
         }
-        .model-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+
+        .status-value.ready {
+            color: #28a745;
+        }
+
+        .status-value.error {
+            color: #dc3545;
+        }
+
+        .status-value.loading {
+            color: #ffc107;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 25px 0;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: #495057;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+
+        button {
+            padding: 12px 24px;
+            margin: 5px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #recordBtn {
+            background: #28a745;
+            color: white;
+        }
+
+        #stopBtn {
+            background: #dc3545;
+            color: white;
+        }
+
+        #uploadBtn {
+            background: #007bff;
+            color: white;
+        }
+
+        #copyBtn {
+            background: #ffc107;
+            color: #212529;
+            margin-top: 15px;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #6c757d;
+            border-radius: 6px;
+            width: 100%;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+
+        .upload-area {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        #fileStatus {
+            color: #666;
+            font-style: italic;
+            margin-top: 10px;
+        }
+
+        .result-box {
+            min-height: 150px;
+            padding: 20px;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 18px;
+            line-height: 1.6;
+            color: #1e293b;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-y: auto;
+        }
+
+        .info-card {
+            background: #e7f3ff;
+            border-color: #b8daff;
+        }
+
+        .info-card h3 {
+            color: #004085;
+            margin-bottom: 15px;
+        }
+
+        .info-card p {
+            margin: 8px 0;
+            color: #495057;
+        }
+
+        #recordStatus, #fileStatus {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            min-height: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .card {
+                padding: 15px;
+            }
+            
+            button {
+                width: 100%;
+                margin: 5px 0;
+            }
+            
+            .upload-area {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            h2 {
+                font-size: 1.2rem;
+            }
+        }
+
+        .recording {
+            animation: pulse 1.5s infinite;
+            color: #dc3545 !important;
+        }
+
+        .processing {
+            color: #0dcaf0 !important;
+        }
+
+        .success {
+            color: #28a745 !important;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎤 Qubee Afan Oromo Voice to Text</h1>
+        <p class="subtitle">Convert spoken Afan Oromo to Qubee text</p>
         
-        <div id="modelStatus" class="model-status">
-            Loading model status...
+        <!-- System Status -->
+        <div class="status-card">
+            <h2>🔧 System Status</h2>
+            <div id="systemStatus">
+                <div class="status-item">
+                    <span class="status-label">Model:</span>
+                    <span id="modelStatus" class="status-value loading">Checking...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Server:</span>
+                    <span id="serverStatus" class="status-value">Checking...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Microphone:</span>
+                    <span id="micStatus" class="status-value">Checking...</span>
+                </div>
+            </div>
         </div>
         
+        <!-- Recording Section -->
         <div class="card">
-            <h2>1. Record Voice</h2>
-            <button id="recordBtn">🎤 Start Recording</button>
-            <button id="stopBtn" disabled>⏹ Stop Recording</button>
+            <h2>1. 🎙️ Record Voice</h2>
+            <p>Click to record using your microphone:</p>
+            
+            <div class="buttons">
+                <button id="recordBtn">
+                    <span class="icon">🎤</span> Start Recording
+                </button>
+                <button id="stopBtn" disabled>
+                    <span class="icon">⏹️</span> Stop Recording
+                </button>
+            </div>
+            
             <div id="recordStatus">Click "Start Recording" to begin</div>
         </div>
         
-
-        <!-- Model Status Card -->
-<div class="card status-card">
-    <h2>🔧 System Status</h2>
-    <div id="systemStatus">
-        <div class="status-item">
-            <span class="status-label">Model:</span>
-            <span id="modelStatus" class="status-value loading">Checking...</span>
-        </div>
-        <div class="status-item">
-            <span class="status-label">Server:</span>
-            <span id="serverStatus" class="status-value">Connected</span>
-        </div>
-        <div class="status-item">
-            <span class="status-label">Microphone:</span>
-            <span id="micStatus" class="status-value">Ready</span>
-        </div>
-    </div>
-</div>
+        <!-- Upload Section -->
         <div class="card">
-            <h2>2. Upload Audio File</h2>
-            <input type="file" id="audioFile" accept="audio/*, .wav, .mp3, .m4a">
-            <button id="uploadBtn">📁 Convert File</button>
+            <h2>2. 📁 Upload Audio File</h2>
+            <p>Select an audio file (WAV, MP3, M4A, OGG, FLAC):</p>
+            
+            <div class="upload-area">
+                <input type="file" id="audioFile" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac">
+                <button id="uploadBtn">
+                    <span class="icon">📁</span> Convert File
+                </button>
+            </div>
+            
             <div id="fileStatus">No file selected</div>
         </div>
         
+        <!-- Results Section -->
         <div class="card">
-            <h2>3. Converted Text (Qubee)</h2>
+            <h2>3. 📝 Converted Text (Qubee)</h2>
             <div id="result" class="result-box">
                 Your converted text will appear here...
             </div>
-            <button id="copyBtn" style="display:none; margin-top: 10px;">📋 Copy Text</button>
+            <button id="copyBtn" style="display:none;">
+                <span class="icon">📋</span> Copy Text
+            </button>
         </div>
         
-        <div class="card info">
-            <h3>ℹ️ Instructions</h3>
-            <p>1. Record your voice speaking Afan Oromo</p>
-            <p>2. Or upload an audio file (WAV, MP3, M4A)</p>
-            <p>3. Wait for conversion to Qubee text</p>
-            <p>4. Copy and use the converted text</p>
+        <!-- Instructions -->
+        <div class="card info-card">
+            <h3>ℹ️ How to Use</h3>
+            <p><strong>1. Record Voice:</strong> Click "Start Recording", speak Afan Oromo, then "Stop"</p>
+            <p><strong>2. Upload File:</strong> Select an audio file and click "Convert File"</p>
+            <p><strong>3. Get Text:</strong> Wait for conversion to Qubee script</p>
+            <p><strong>4. Copy:</strong> Use the "Copy Text" button to copy the result</p>
+            <p class="language-note"><strong>Note:</strong> This converts Afan Oromo speech to Qubee (Latin-based) text using ResNet-18 AI model.</p>
         </div>
     </div>
-    
-    <script src="/static/script.js"></script>
+
     <script>
+        // ============================================
+        // DOM Elements
+        // ============================================
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const audioFile = document.getElementById('audioFile');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const resultDiv = document.getElementById('result');
+        const copyBtn = document.getElementById('copyBtn');
+        const recordStatus = document.getElementById('recordStatus');
+        const fileStatus = document.getElementById('fileStatus');
+        const modelStatus = document.getElementById('modelStatus');
+        const serverStatus = document.getElementById('serverStatus');
+        const micStatus = document.getElementById('micStatus');
+
+        // ============================================
+        // Global Variables
+        // ============================================
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+
+        // ============================================
+        // Utility Functions
+        // ============================================
+
+        // Get CSRF token for Django
+        function getCSRFToken() {
+            const name = 'csrftoken';
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Update UI state
+        function updateUI(state, message) {
+            if (state === 'recording') {
+                recordBtn.disabled = true;
+                stopBtn.disabled = false;
+                recordStatus.textContent = message || '🎤 Recording... Speak Afan Oromo now!';
+                recordStatus.className = 'recording';
+            } else if (state === 'processing') {
+                recordBtn.disabled = true;
+                stopBtn.disabled = true;
+                recordStatus.textContent = message || '🔄 Processing audio...';
+                recordStatus.className = 'processing';
+            } else {
+                recordBtn.disabled = false;
+                stopBtn.disabled = true;
+                recordStatus.textContent = message || 'Ready to record';
+                recordStatus.className = '';
+            }
+        }
+
+        // Show result in the result box
+        function showResult(text, type = 'success') {
+            resultDiv.textContent = text;
+            if (type === 'success') {
+                resultDiv.style.color = '#28a745';
+                resultDiv.style.borderColor = '#28a745';
+            } else if (type === 'error') {
+                resultDiv.style.color = '#dc3545';
+                resultDiv.style.borderColor = '#dc3545';
+            } else if (type === 'loading') {
+                resultDiv.style.color = '#0dcaf0';
+                resultDiv.style.borderColor = '#0dcaf0';
+            }
+        }
+
+        // ============================================
+        // Status Checking
+        // ============================================
+
         // Check model status
+        async function checkModelStatus() {
+            try {
+                const response = await fetch('/status/');
+                const data = await response.json();
+                
+                if (data.model_loaded) {
+                    modelStatus.textContent = '✅ Loaded (ResNet-18)';
+                    modelStatus.className = 'status-value ready';
+                } else {
+                    modelStatus.textContent = '❌ Error';
+                    modelStatus.className = 'status-value error';
+                }
+            } catch (error) {
+                console.error('Failed to check model status:', error);
+                modelStatus.textContent = '❌ Offline';
+                modelStatus.className = 'status-value error';
+            }
+        }
+
+        // Check server connection
+        async function checkServerConnection() {
+            try {
+                const response = await fetch('/test/');
+                const data = await response.json();
+                
+                if (data.success) {
+                    serverStatus.textContent = '✅ Connected';
+                    serverStatus.className = 'status-value ready';
+                } else {
+                    serverStatus.textContent = '❌ Error';
+                    serverStatus.className = 'status-value error';
+                }
+            } catch (error) {
+                console.error('Server check failed:', error);
+                serverStatus.textContent = '❌ Offline';
+                serverStatus.className = 'status-value error';
+            }
+        }
+
+        // Check microphone permission
+        async function checkMicrophonePermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micStatus.textContent = '✅ Ready';
+                micStatus.className = 'status-value ready';
+                stream.getTracks().forEach(track => track.stop());
+            } catch (error) {
+                console.error('Microphone check failed:', error);
+                micStatus.textContent = '❌ Permission needed';
+                micStatus.className = 'status-value error';
+            }
+        }
+
+        // ============================================
+        // Audio Processing
+        // ============================================
+
+        // Send audio to server
+        async function sendAudioToServer(audioData, endpoint) {
+            const formData = new FormData();
+            const fieldName = endpoint === '/convert/' ? 'audio_data' : 'voice_file';
+            formData.append(fieldName, audioData, 'audio.wav');
+            
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: formData
+                });
+                
+                return await response.json();
+                
+            } catch (error) {
+                console.error('Network error:', error);
+                return { success: false, error: 'Network error. Please try again.' };
+            }
+        }
+
+        // ============================================
+        // Event Listeners
+        // ============================================
+
+        // Start recording
+        recordBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+                
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    
+                    // Show processing
+                    showResult('🔄 Converting audio to Qubee text...', 'loading');
+                    copyBtn.style.display = 'none';
+                    updateUI('processing');
+                    
+                    // Send to server
+                    const result = await sendAudioToServer(audioBlob, '/convert/');
+                    
+                    // Show result
+                    if (result.success) {
+                        showResult(result.text, 'success');
+                        copyBtn.style.display = 'block';
+                        updateUI('ready', '✅ Conversion complete!');
+                    } else {
+                        showResult(`Error: ${result.error}`, 'error');
+                        updateUI('ready', '❌ Conversion failed');
+                    }
+                    
+                    // Clean up stream
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                updateUI('recording');
+                
+            } catch (error) {
+                console.error('Microphone error:', error);
+                showResult('❌ Microphone access denied. Please allow microphone permissions.', 'error');
+                updateUI('ready', '❌ Microphone error');
+                micStatus.textContent = '❌ Permission denied';
+                micStatus.className = 'status-value error';
+            }
+        });
+
+        // Stop recording
+        stopBtn.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                isRecording = false;
+            }
+        });
+
+        // File input change
+        audioFile.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                const file = this.files[0];
+                const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                fileStatus.textContent = `📄 Selected: ${file.name} (${sizeMB} MB)`;
+                fileStatus.style.color = '#0dcaf0';
+            } else {
+                fileStatus.textContent = 'No file selected';
+                fileStatus.style.color = '#666';
+            }
+        });
+
+        // Upload file
+        uploadBtn.addEventListener('click', async () => {
+            if (audioFile.files.length === 0) {
+                showResult('❌ Please select a file first', 'error');
+                fileStatus.textContent = '❌ Please select a file';
+                fileStatus.style.color = '#dc3545';
+                return;
+            }
+            
+            const file = audioFile.files[0];
+            
+            // Validate file size (50MB limit)
+            if (file.size > 50 * 1024 * 1024) {
+                showResult('❌ File too large (max 50MB)', 'error');
+                fileStatus.textContent = '❌ File too large (max 50MB)';
+                fileStatus.style.color = '#dc3545';
+                return;
+            }
+            
+            // Show processing
+            showResult('🔄 Converting file to Qubee text...', 'loading');
+            copyBtn.style.display = 'none';
+            fileStatus.textContent = '🔄 Processing...';
+            fileStatus.style.color = '#0dcaf0';
+            
+            // Send to server
+            const result = await sendAudioToServer(file, '/upload/');
+            
+            // Show result
+            if (result.success) {
+                showResult(result.text, 'success');
+                copyBtn.style.display = 'block';
+                fileStatus.textContent = `✅ ${file.name} converted`;
+                fileStatus.style.color = '#28a745';
+            } else {
+                showResult(`Error: ${result.error}`, 'error');
+                fileStatus.textContent = '❌ Conversion failed';
+                fileStatus.style.color = '#dc3545';
+            }
+        });
+
+        // Copy text to clipboard
+        copyBtn.addEventListener('click', async () => {
+            const text = resultDiv.textContent;
+            
+            try {
+                await navigator.clipboard.writeText(text);
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<span class="icon">✅</span> Copied!';
+                copyBtn.style.background = '#28a745';
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.style.background = '';
+                }, 2000);
+            } catch (error) {
+                console.error('Copy failed:', error);
+                alert('Failed to copy text to clipboard.');
+            }
+        });
+
+        // ============================================
+        // Initialize
+        // ============================================
+
+        // Initialize checks on page load
         document.addEventListener('DOMContentLoaded', function() {
-            const statusDiv = document.getElementById('modelStatus');
-            // This would normally come from server
-            statusDiv.textContent = '✅ Model loaded and ready';
-            statusDiv.className = 'model-status model-loaded';
+            checkModelStatus();
+            checkServerConnection();
+            checkMicrophonePermission();
+            
+            // Update status every 30 seconds
+            setInterval(checkModelStatus, 30000);
+            setInterval(checkServerConnection, 30000);
+            
+            console.log('Qubee Voice Converter loaded');
         });
     </script>
 </body>

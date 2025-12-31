@@ -2,7 +2,7 @@ import os
 import tempfile
 import json
 import time
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
@@ -19,11 +19,77 @@ except Exception as e:
 
 def home(request):
     """Render the main page"""
-    context = {
-        'model_loaded': MODEL_LOADED,
-        'title': 'Qubee Afan Oromo Voice to Text',
-    }
-    return render(request, 'index.html', context)
+    # Check if template exists first
+    template_path = os.path.join(os.path.dirname(__file__), 'templates', 'index.html')
+    
+    if os.path.exists(template_path):
+        try:
+            return render(request, 'index.html')
+        except Exception as e:
+            print(f"Template render error: {e}")
+            return HttpResponse(f"Template error: {e}")
+    else:
+        # Template doesn't exist, create simple page
+        print(f"Template not found at: {template_path}")
+        return HttpResponse("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Qubee Voice to Text</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                .container { max-width: 600px; margin: 0 auto; }
+                .card { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 10px; }
+                button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+                #recordBtn { background: green; color: white; }
+                #stopBtn { background: red; color: white; }
+                #result { padding: 15px; background: #f5f5f5; min-height: 100px; margin: 10px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🎤 Qubee Afan Oromo Voice to Text</h1>
+                <p>Model status: """ + ("✅ LOADED" if MODEL_LOADED else "❌ NOT LOADED") + """</p>
+                
+                <div class="card">
+                    <h2>Record Voice</h2>
+                    <button id="recordBtn">🎤 Start Recording</button>
+                    <button id="stopBtn" disabled>⏹ Stop</button>
+                    <div id="recordStatus">Ready</div>
+                </div>
+                
+                <div class="card">
+                    <h2>Upload File</h2>
+                    <input type="file" id="audioFile" accept="audio/*">
+                    <button id="uploadBtn">📁 Convert File</button>
+                    <div id="fileStatus">No file selected</div>
+                </div>
+                
+                <div class="card">
+                    <h2>Converted Text</h2>
+                    <div id="result">Text will appear here...</div>
+                    <button id="copyBtn" style="display:none;">📋 Copy</button>
+                </div>
+            </div>
+            
+            <script>
+                // Basic JavaScript
+                document.getElementById('recordBtn').onclick = () => {
+                    alert("Recording would start here");
+                };
+                
+                document.getElementById('uploadBtn').onclick = () => {
+                    alert("File upload would start here");
+                };
+                
+                // Test API endpoints
+                fetch('/status/').then(r => r.json()).then(data => {
+                    console.log("Model status:", data);
+                });
+            </script>
+        </body>
+        </html>
+        """)
 
 @csrf_exempt
 def convert_voice(request):
@@ -61,19 +127,15 @@ def convert_voice(request):
             
             print(f"💾 Saved to temporary file: {temp_path}")
             
-            # Process with model - USE SEQUENCE PREDICTION FOR WORDS
+            # Process with model
             print("🔄 Processing audio with ResNet-18 model...")
             
-            # Option 1: Single letter prediction (for short audio)
-            # text = model.predict(temp_path)
-            
-            # Option 2: Word prediction (split into segments)
-            # Try 0.5 seconds per letter as default
-            text = model.predict_sequence(temp_path, segment_duration=0.5)
-            
-            # If sequence prediction fails or returns empty, try single prediction
-            if not text or text == "?" or len(text) < 1:
-                print("⚠️ Sequence prediction failed, trying single prediction...")
+            # Try sequence prediction first
+            try:
+                text = model.predict_sequence(temp_path, segment_duration=0.5)
+                if not text or text == "?" or len(text) < 1:
+                    text = model.predict(temp_path)
+            except:
                 text = model.predict(temp_path)
             
             processing_time = time.time() - start_time
@@ -93,7 +155,6 @@ def convert_voice(request):
                 'text': text,
                 'type': 'voice_recording',
                 'processing_time': round(processing_time, 2),
-                'file_info': file_info,
                 'model_type': 'ResNet-18',
                 'timestamp': time.time()
             })
@@ -119,22 +180,9 @@ def convert_voice(request):
                 'timestamp': time.time()
             }, status=500)
     
-    # Handle JSON payload (alternative method)
-    elif request.method == 'POST' and request.body:
-        try:
-            data = json.loads(request.body)
-            if 'audio_base64' in data:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Base64 audio encoding not yet implemented',
-                    'text': ''
-                }, status=501)  # Not implemented
-        except json.JSONDecodeError:
-            pass
-    
     return JsonResponse({
         'success': False,
-        'error': 'No audio data received. Please record your voice or upload a file.',
+        'error': 'No audio data received.',
         'text': '',
         'timestamp': time.time()
     }, status=400)
@@ -199,12 +247,12 @@ def upload_voice(request):
             # Process with model
             print(f"🔄 Processing uploaded file with ResNet-18 model...")
             
-            # Try sequence prediction first (for words)
-            text = model.predict_sequence(temp_path, segment_duration=0.5)
-            
-            # Fallback to single prediction if needed
-            if not text or text == "?" or len(text) < 1:
-                print("⚠️ Sequence prediction failed, trying single prediction...")
+            # Try sequence prediction first
+            try:
+                text = model.predict_sequence(temp_path, segment_duration=0.5)
+                if not text or text == "?" or len(text) < 1:
+                    text = model.predict(temp_path)
+            except:
                 text = model.predict(temp_path)
             
             processing_time = time.time() - start_time
@@ -253,7 +301,7 @@ def upload_voice(request):
     
     return JsonResponse({
         'success': False,
-        'error': 'No file uploaded. Please select an audio file.',
+        'error': 'No file uploaded.',
         'text': '',
         'timestamp': time.time()
     }, status=400)
