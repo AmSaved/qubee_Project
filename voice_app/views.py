@@ -105,6 +105,9 @@ def convert_voice(request):
             # Predict
             text = model.predict(temp_path)
             
+            if text.startswith("Error:"):
+                raise Exception(text)
+            
             print(f"✅ Prediction: '{text}'")
             
             # Cleanup
@@ -118,6 +121,7 @@ def convert_voice(request):
             
         except Exception as e:
             print(f"❌ Error: {str(e)}")
+            traceback.print_exc()
             # Cleanup on error
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
