@@ -40,7 +40,7 @@ class VoiceToTextModel:
         
         try:
             # Create ResNet-18 model
-            model = models.resnet18(pretrained=False)
+            model = models.resnet18(pretrained=True)
             
             # Modify last layer for 26 letters
             num_ftrs = model.fc.in_features
