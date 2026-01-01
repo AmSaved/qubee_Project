@@ -6,12 +6,8 @@ import numpy as np
 import os
 import sys
 from pathlib import Path
+import soundfile as sf
 from PIL import Image
-import io
-
-# ============================================
-# YOUR EXACT MODEL ARCHITECTURE
-# ============================================
 
 class VoiceToTextModel:
     def __init__(self):
@@ -23,7 +19,7 @@ class VoiceToTextModel:
         self.model = self.load_model()
         print("✅ Model loaded successfully")
         
-        # Image transformations (SAME as your training)
+        # Image transformations (same as training)
         from torchvision import transforms
         self.transform = transforms.Compose([
             transforms.Resize((224, 224)),
@@ -43,10 +39,10 @@ class VoiceToTextModel:
         print(f"📦 Loading model from: {model_path}")
         
         try:
-            # Create ResNet-18 model (EXACTLY like your training)
+            # Create ResNet-18 model
             model = models.resnet18(pretrained=False)
             
-            # Modify last layer for 26 letters (Afan Oromo alphabet)
+            # Modify last layer for 26 letters
             num_ftrs = model.fc.in_features
             model.fc = nn.Linear(num_ftrs, 26)  # 26 letters
             
@@ -59,25 +55,47 @@ class VoiceToTextModel:
             model.eval()
             
             print(f"✅ ResNet-18 model loaded with 26 output classes")
-            print(f"📊 Model type: ResNet-18 (image classification)")
-            
             return model
             
         except Exception as e:
             print(f"❌ ERROR loading model: {e}")
-            print("\n🔧 Make sure your .pth file matches ResNet-18 architecture")
             sys.exit(1)
     
-    def audio_to_spectrogram_image(self, audio_path):
-        """Convert audio to spectrogram image (SAME as your training data)"""
+    def load_audio_file(self, audio_path):
+        """Load audio file with support for multiple formats including AAC"""
         try:
-            # Load audio
+            # Try librosa first (supports many formats)
             audio, sr = librosa.load(audio_path, sr=16000, mono=True)
-            
+            return audio, sr
+        except:
+            try:
+                # Try soundfile for AAC and other formats
+                audio, sr = sf.read(audio_path)
+                # Convert to mono if stereo
+                if len(audio.shape) > 1:
+                    audio = np.mean(audio, axis=1)
+                # Resample to 16000 if needed
+                if sr != 16000:
+                    import librosa
+                    audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
+                    sr = 16000
+                return audio, sr
+            except Exception as e:
+                print(f"❌ Error loading audio file {audio_path}: {e}")
+                raise
+    
+    def audio_to_spectrogram_image(self, audio, sr):
+        """Convert audio to spectrogram image"""
+        try:
             # Trim silence
             audio, _ = librosa.effects.trim(audio, top_db=20)
             
-            # Create mel spectrogram (80 bands, like your training)
+            # Ensure minimum length (1 second)
+            if len(audio) < sr:
+                padding = sr - len(audio)
+                audio = np.pad(audio, (0, padding), mode='constant')
+            
+            # Create mel spectrogram
             mel_spec = librosa.feature.melspectrogram(
                 y=audio,
                 sr=sr,
@@ -96,10 +114,9 @@ class VoiceToTextModel:
             log_mel = (log_mel * 255).astype(np.uint8)
             
             # Create PIL Image
-            from PIL import Image
             img = Image.fromarray(log_mel).convert('RGB')
             
-            # Resize to 224x224 (ResNet input)
+            # Resize to 224x224
             img = img.resize((224, 224), Image.Resampling.LANCZOS)
             
             return img
@@ -109,41 +126,38 @@ class VoiceToTextModel:
             raise
     
     def predict(self, audio_path):
-        """Convert audio to letter using your image classification model"""
-        print(f"🎯 Processing: {Path(audio_path).name}")
+        """Convert audio to letter"""
+        print(f"🎯 Processing single prediction: {Path(audio_path).name}")
         
         try:
-            # 1. Convert audio to spectrogram image
-            spectrogram_img = self.audio_to_spectrogram_image(audio_path)
+            # Load audio
+            audio, sr = self.load_audio_file(audio_path)
             
-            # 2. Apply transformations (SAME as training)
+            # Convert to spectrogram image
+            spectrogram_img = self.audio_to_spectrogram_image(audio, sr)
+            
+            # Apply transformations
             input_tensor = self.transform(spectrogram_img)
             input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension
             input_tensor = input_tensor.to(self.device)
             
-            print(f"📊 Input shape: {input_tensor.shape}")
-            
-            # 3. Model prediction
+            # Model prediction
             with torch.no_grad():
                 output = self.model(input_tensor)
             
-            print(f"📈 Output shape: {output.shape}")
-            
-            # 4. Get predicted letter
+            # Get predicted letter
             probabilities = torch.nn.functional.softmax(output, dim=1)
             _, predicted_idx = torch.max(probabilities, 1)
             predicted_class = predicted_idx.item()
             
-            # 5. Map to Qubee letter
-            # Your model was trained on 26 classes (a-z)
+            # Map to Qubee letter
             qubee_letters = "abcdefghijklmnopqrstuvwxyz"
             
             if 0 <= predicted_class < len(qubee_letters):
                 predicted_letter = qubee_letters[predicted_class]
-                print(f"✅ Predicted letter: '{predicted_letter}' (class {predicted_class})")
+                print(f"✅ Predicted letter: '{predicted_letter}'")
                 return predicted_letter
             else:
-                print(f"⚠️ Invalid class index: {predicted_class}")
                 return "?"
             
         except Exception as e:
@@ -151,24 +165,26 @@ class VoiceToTextModel:
             print(f"❌ {error_msg}")
             return error_msg
     
-    def predict_sequence(self, audio_path, segment_duration=1.0):
+    def predict_sequence(self, audio_path, segment_duration=0.5):
         """
-        For word prediction: split audio into segments and predict each letter
-        segment_duration: seconds per letter (adjust based on your data)
+        Split audio into segments and predict each letter
         """
         print(f"🎯 Processing sequence: {Path(audio_path).name}")
         
         try:
             # Load full audio
-            audio, sr = librosa.load(audio_path, sr=16000, mono=True)
+            audio, sr = self.load_audio_file(audio_path)
             
             # Calculate segment size in samples
             segment_samples = int(segment_duration * sr)
-            total_segments = len(audio) // segment_samples
             
-            if total_segments == 0:
-                print("⚠️ Audio too short for segmentation")
-                return self.predict(audio_path)  # Fallback to single prediction
+            # Don't split if audio is too short
+            if len(audio) <= segment_samples:
+                print("⚠️ Audio too short for segmentation, using single prediction")
+                return self.predict(audio_path)
+            
+            # How many segments we can get
+            total_segments = len(audio) // segment_samples
             
             print(f"📊 Splitting into {total_segments} segments ({segment_duration}s each)")
             
@@ -179,43 +195,37 @@ class VoiceToTextModel:
                 end_sample = start_sample + segment_samples
                 segment = audio[start_sample:end_sample]
                 
-                if len(segment) < segment_samples:
-                    break  # Last segment might be too short
-                
                 # Save segment to temp file
                 import tempfile
-                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-                    import soundfile as sf
-                    sf.write(f.name, segment, sr)
-                    temp_path = f.name
-                
+                temp_path = None
                 try:
+                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+                        temp_path = f.name
+                        sf.write(temp_path, segment, sr)
+                    
                     # Predict letter for this segment
                     letter = self.predict(temp_path)
                     predicted_letters.append(letter)
                     print(f"  Segment {i+1}/{total_segments}: '{letter}'")
+                    
                 finally:
                     # Cleanup temp file
-                    if os.path.exists(temp_path):
+                    if temp_path and os.path.exists(temp_path):
                         os.unlink(temp_path)
+                
+                # Break early if we have enough letters
+                if len(predicted_letters) >= 10:  # Max 10 letters
+                    break
             
             # Combine letters into word
             word = ''.join(predicted_letters)
-            print(f"✅ Predicted word: '{word}'")
+            print(f"✅ Predicted sequence: '{word}'")
             return word
             
         except Exception as e:
-            error_msg = f"Sequence prediction error: {str(e)}"
-            print(f"❌ {error_msg}")
-            return error_msg
-    
-    def decode_output(self, output):
-        """Legacy method for compatibility"""
-        probabilities = torch.nn.functional.softmax(output, dim=1)
-        _, predicted_idx = torch.max(probabilities, 1)
-        predicted_class = predicted_idx.item()
-        
-        qubee_letters = "abcdefghijklmnopqrstuvwxyz"
-        if 0 <= predicted_class < len(qubee_letters):
-            return qubee_letters[predicted_class]
-        return "?"
+            print(f"❌ Sequence prediction error: {e}")
+            # Fallback to single prediction
+            try:
+                return self.predict(audio_path)
+            except:
+                return f"Error: {str(e)[:100]}"
