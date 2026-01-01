@@ -6,6 +6,7 @@ import subprocess
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+import traceback
 
 # Import model
 try:
@@ -15,6 +16,7 @@ try:
     print("✅ Voice model initialized successfully")
 except Exception as e:
     print(f"❌ Failed to load voice model: {e}")
+    traceback.print_exc()
     MODEL_LOADED = False
     model = None
 
@@ -82,8 +84,13 @@ def convert_voice(request):
     if request.method == 'POST' and 'audio_data' in request.FILES:
         audio_file = request.FILES['audio_data']
         
-        # Save to temp file - ALWAYS use .wav extension
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as f:
+        # Use original extension if possible, otherwise default to .wav
+        file_ext = os.path.splitext(audio_file.name)[1]
+        if not file_ext:
+            file_ext = '.wav'
+            
+        # Save to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as f:
             for chunk in audio_file.chunks():
                 f.write(chunk)
             temp_path = f.name

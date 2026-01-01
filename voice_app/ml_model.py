@@ -35,7 +35,7 @@ class VoiceToTextModel:
         
         if not model_path.exists():
             print(f"❌ ERROR: Model not found at {model_path}")
-            sys.exit(1)
+            raise FileNotFoundError(f"Model not found at {model_path}")
         
         print(f"📦 Loading model from: {model_path}")
         
@@ -59,7 +59,7 @@ class VoiceToTextModel:
             
         except Exception as e:
             print(f"❌ ERROR loading model: {e}")
-            sys.exit(1)
+            raise e
     
     def load_audio_any_format(self, audio_path):
         """Load audio from ANY format including AAC"""
@@ -103,6 +103,10 @@ class VoiceToTextModel:
                 else:
                     audio_seg = AudioSegment.from_file(audio_path)
                 
+                # Ensure mono before converting to numpy
+                if audio_seg.channels > 1:
+                    audio_seg = audio_seg.set_channels(1)
+                
                 # Convert to numpy
                 samples = np.array(audio_seg.get_array_of_samples())
                 sr = audio_seg.frame_rate
@@ -124,29 +128,14 @@ class VoiceToTextModel:
                 
             except Exception as e:
                 print(f"⚠️ Pydub failed: {e}")
-                # Try to install pydub
-                import subprocess
-                try:
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", "pydub"])
-                    print("✅ Installed pydub, trying again...")
-                    from pydub import AudioSegment
-                    audio_seg = AudioSegment.from_file(audio_path)
-                    samples = np.array(audio_seg.get_array_of_samples())
-                    sr = audio_seg.frame_rate
-                    if sr != 16000:
-                        samples = librosa.resample(samples.astype(np.float32), orig_sr=sr, target_sr=16000)
-                        sr = 16000
-                    return samples, sr
-                except:
-                    pass
             
             # Method 4: Try raw binary reading for WAV files
             try:
                 with open(audio_path, 'rb') as f:
-                    data = f.read()
+                    data = f.read(4)
                 
                 # Check if it's a WAV file (starts with 'RIFF')
-                if data[:4] == b'RIFF':
+                if data == b'RIFF':
                     import wave
                     with wave.open(audio_path, 'rb') as wav:
                         sr = wav.getframerate()
@@ -253,4 +242,4 @@ class VoiceToTextModel:
             return self.predict_letter(audio_path)
         except Exception as e:
             print(f"❌ Prediction error: {e}")
-            return "error"
+            return f"Error: {str(e)}"
