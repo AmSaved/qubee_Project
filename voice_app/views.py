@@ -120,7 +120,7 @@ def convert_voice(request):
         
         # Save to temporary file
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as f:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.aac') as f:
                 for chunk in audio_file.chunks():
                     f.write(chunk)
                 temp_path = f.name
