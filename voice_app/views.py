@@ -193,7 +193,7 @@ def upload_voice(request):
     if not MODEL_LOADED:
         return JsonResponse({
             'success': False,
-            'error': 'Voice model not loaded. Please check server logs.',
+            'error': 'Voice model not loaded.',
             'text': '',
             'timestamp': time.time()
         }, status=500)
@@ -208,102 +208,94 @@ def upload_voice(request):
             'name': audio_file.name,
             'size': audio_file.size,
             'type': audio_file.content_type,
-            'uploaded_at': time.strftime('%Y-%m-%d %H:%M:%S')
         }
         
         print(f"📁 Received file upload: {file_info}")
         
         # Size limit: 50MB
-        MAX_SIZE = 50 * 1024 * 1024  # 50MB
+        MAX_SIZE = 50 * 1024 * 1024
         if audio_file.size > MAX_SIZE:
             return JsonResponse({
                 'success': False,
-                'error': f'File too large. Maximum size is {MAX_SIZE/(1024*1024):.0f}MB.',
+                'error': f'File too large (max {MAX_SIZE//(1024*1024)}MB)',
                 'text': '',
-                'timestamp': time.time()
             }, status=400)
         
-        # Allowed file extensions
-        allowed_extensions = ['.wav', '.mp3', '.m4a', '.ogg', '.flac', '.webm', '.aac']
+        # Allowed file extensions (NOW INCLUDES AAC)
+        allowed_extensions = ['.wav', '.mp3', '.m4a', '.ogg', '.flac', '.webm', '.aac', '.m4b', '.m4r', '.3gp']
         filename = audio_file.name.lower()
         
-        if not any(filename.endswith(ext) for ext in allowed_extensions):
+        # Check extension
+        has_valid_extension = any(filename.endswith(ext) for ext in allowed_extensions)
+        
+        # Also check MIME type
+        valid_mime_types = ['audio/', 'video/', 'application/octet-stream']
+        has_valid_mime = any(audio_file.content_type.startswith(mime) for mime in valid_mime_types)
+        
+        if not (has_valid_extension or has_valid_mime):
             return JsonResponse({
                 'success': False,
-                'error': f'Unsupported file type. Allowed: {", ".join([ext for ext in allowed_extensions])}',
+                'error': f'Unsupported file type. Allowed: {", ".join(allowed_extensions)}',
                 'text': '',
-                'timestamp': time.time()
             }, status=400)
         
         # Save to temporary file
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as f:
+            # Use original extension
+            file_ext = os.path.splitext(audio_file.name)[1]
+            if not file_ext:
+                file_ext = '.wav'  # Default
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as f:
                 for chunk in audio_file.chunks():
                     f.write(chunk)
                 temp_path = f.name
             
-            print(f"💾 Saved to temporary file: {temp_path}")
+            print(f"💾 Saved to: {temp_path}")
             
-            # Process with model
-            print(f"🔄 Processing uploaded file with ResNet-18 model...")
+            # Process with model - SIMPLIFY: Use single prediction
+            print(f"🔄 Processing audio file...")
             
-            # Try sequence prediction first
-            try:
-                text = model.predict_sequence(temp_path, segment_duration=0.5)
-                if not text or text == "?" or len(text) < 1:
-                    text = model.predict(temp_path)
-            except:
-                text = model.predict(temp_path)
+            # Use simple prediction instead of sequence
+            text = model.predict(temp_path)
+            
+            # If it's a single letter, that's okay - your model predicts one letter at a time
             
             processing_time = time.time() - start_time
             
-            print(f"✅ File processing completed in {processing_time:.2f} seconds")
+            print(f"✅ Processing completed in {processing_time:.2f}s")
             print(f"📝 Result: '{text}'")
             
-            # Clean up temporary file
-            try:
+            # Clean up
+            if os.path.exists(temp_path):
                 os.unlink(temp_path)
-                print(f"🗑️ Cleaned up temporary file")
-            except:
-                pass
             
             return JsonResponse({
                 'success': True,
                 'text': text,
-                'type': 'file_upload',
                 'filename': audio_file.name,
-                'file_size': audio_file.size,
                 'processing_time': round(processing_time, 2),
-                'model_type': 'ResNet-18',
-                'timestamp': time.time()
             })
             
         except Exception as e:
-            processing_time = time.time() - start_time
-            error_msg = f"Error processing file: {str(e)}"
-            print(f"❌ {error_msg}")
+            print(f"❌ Error: {str(e)}")
             
-            # Clean up on error
             if 'temp_path' in locals() and os.path.exists(temp_path):
                 try:
                     os.unlink(temp_path)
-                    print(f"🗑️ Cleaned up temporary file after error")
                 except:
                     pass
             
             return JsonResponse({
                 'success': False,
-                'error': error_msg,
+                'error': f'Error: {str(e)}',
                 'text': '',
-                'processing_time': round(processing_time, 2),
-                'timestamp': time.time()
             }, status=500)
     
     return JsonResponse({
         'success': False,
         'error': 'No file uploaded.',
         'text': '',
-        'timestamp': time.time()
     }, status=400)
 
 def model_status(request):
