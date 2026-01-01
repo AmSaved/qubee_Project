@@ -299,7 +299,41 @@ def test_connection(request):
     }
     
     return JsonResponse(test_data)
-
+def ensure_wav_format(self, audio_path):
+    """Convert any audio format to WAV"""
+    try:
+        import subprocess
+        import os
+        
+        # Check if already WAV
+        if audio_path.lower().endswith('.wav'):
+            return audio_path
+        
+        # Convert using ffmpeg
+        wav_path = audio_path + '.wav'
+        
+        # Try to convert
+        try:
+            subprocess.run([
+                'ffmpeg', '-i', audio_path, 
+                '-acodec', 'pcm_s16le',
+                '-ac', '1',
+                '-ar', '16000',
+                wav_path,
+                '-y'
+            ], check=True, capture_output=True)
+            
+            # Remove original
+            os.unlink(audio_path)
+            return wav_path
+            
+        except:
+            # If ffmpeg fails, return original
+            return audio_path
+            
+    except Exception as e:
+        print(f"⚠️ Format conversion failed: {e}")
+        return audio_path
 def health_check(request):
     """Health check endpoint for monitoring"""
     health_status = {
