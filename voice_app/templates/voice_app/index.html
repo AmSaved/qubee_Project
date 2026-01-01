@@ -1,3 +1,11 @@
+# Navigate to your project
+cd /c/Users/User/Desktop/Qubee_Project
+
+# Create templates directory
+mkdir -p voice_app/templates
+
+# Create index.html file
+cat > voice_app/templates/index.html << 'EOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,58 +48,6 @@
             color: #666;
             margin-bottom: 30px;
             font-size: 1.1rem;
-        }
-
-        .status-card {
-            background: #e8f4fd;
-            border: 1px solid #b6d4fe;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 25px;
-        }
-
-        .status-card h2 {
-            color: #0d6efd;
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-size: 1.3rem;
-        }
-
-        .status-item {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-            padding: 8px;
-            background: white;
-            border-radius: 4px;
-        }
-
-        .status-label {
-            font-weight: bold;
-            color: #495057;
-        }
-
-        .status-value {
-            font-weight: 600;
-        }
-
-        .status-value.ready {
-            color: #28a745;
-        }
-
-        .status-value.error {
-            color: #dc3545;
-        }
-
-        .status-value.loading {
-            color: #ffc107;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
         }
 
         .card {
@@ -165,20 +121,7 @@
             cursor: pointer;
         }
 
-        .upload-area {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        #fileStatus {
-            color: #666;
-            font-style: italic;
-            margin-top: 10px;
-        }
-
-        .result-box {
+        #result {
             min-height: 150px;
             padding: 20px;
             background: white;
@@ -191,21 +134,6 @@
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow-y: auto;
-        }
-
-        .info-card {
-            background: #e7f3ff;
-            border-color: #b8daff;
-        }
-
-        .info-card h3 {
-            color: #004085;
-            margin-bottom: 15px;
-        }
-
-        .info-card p {
-            margin: 8px 0;
-            color: #495057;
         }
 
         #recordStatus, #fileStatus {
@@ -230,11 +158,6 @@
                 margin: 5px 0;
             }
             
-            .upload-area {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
             h1 {
                 font-size: 1.8rem;
             }
@@ -249,12 +172,35 @@
             color: #dc3545 !important;
         }
 
-        .processing {
-            color: #0dcaf0 !important;
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
         }
 
-        .success {
-            color: #28a745 !important;
+        .status {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 10px;
+            background: #e8f4fd;
+            border-radius: 5px;
+        }
+
+        .status-label {
+            font-weight: bold;
+        }
+
+        .status-value {
+            font-weight: 600;
+        }
+
+        .status-value.ready {
+            color: #28a745;
+        }
+
+        .status-value.error {
+            color: #dc3545;
         }
     </style>
 </head>
@@ -263,22 +209,20 @@
         <h1>🎤 Qubee Afan Oromo Voice to Text</h1>
         <p class="subtitle">Convert spoken Afan Oromo to Qubee text</p>
         
-        <!-- System Status -->
-        <div class="status-card">
+        <!-- Status Display -->
+        <div class="card">
             <h2>🔧 System Status</h2>
-            <div id="systemStatus">
-                <div class="status-item">
-                    <span class="status-label">Model:</span>
-                    <span id="modelStatus" class="status-value loading">Checking...</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Server:</span>
-                    <span id="serverStatus" class="status-value">Checking...</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Microphone:</span>
-                    <span id="micStatus" class="status-value">Checking...</span>
-                </div>
+            <div class="status">
+                <span class="status-label">Model:</span>
+                <span id="modelStatus" class="status-value">Checking...</span>
+            </div>
+            <div class="status">
+                <span class="status-label">Server:</span>
+                <span id="serverStatus" class="status-value">Checking...</span>
+            </div>
+            <div class="status">
+                <span class="status-label">Microphone:</span>
+                <span id="micStatus" class="status-value">Checking...</span>
             </div>
         </div>
         
@@ -287,12 +231,12 @@
             <h2>1. 🎙️ Record Voice</h2>
             <p>Click to record using your microphone:</p>
             
-            <div class="buttons">
+            <div>
                 <button id="recordBtn">
-                    <span class="icon">🎤</span> Start Recording
+                    <span>🎤</span> Start Recording
                 </button>
                 <button id="stopBtn" disabled>
-                    <span class="icon">⏹️</span> Stop Recording
+                    <span>⏹️</span> Stop Recording
                 </button>
             </div>
             
@@ -304,12 +248,10 @@
             <h2>2. 📁 Upload Audio File</h2>
             <p>Select an audio file (WAV, MP3, M4A, OGG, FLAC):</p>
             
-            <div class="upload-area">
-                <input type="file" id="audioFile" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac">
-                <button id="uploadBtn">
-                    <span class="icon">📁</span> Convert File
-                </button>
-            </div>
+            <input type="file" id="audioFile" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac">
+            <button id="uploadBtn">
+                <span>📁</span> Convert File
+            </button>
             
             <div id="fileStatus">No file selected</div>
         </div>
@@ -317,22 +259,19 @@
         <!-- Results Section -->
         <div class="card">
             <h2>3. 📝 Converted Text (Qubee)</h2>
-            <div id="result" class="result-box">
-                Your converted text will appear here...
-            </div>
+            <div id="result">Your converted text will appear here...</div>
             <button id="copyBtn" style="display:none;">
-                <span class="icon">📋</span> Copy Text
+                <span>📋</span> Copy Text
             </button>
         </div>
         
         <!-- Instructions -->
-        <div class="card info-card">
-            <h3>ℹ️ How to Use</h3>
+        <div class="card" style="background: #e7f3ff; border-color: #b8daff;">
+            <h3 style="color: #004085;">ℹ️ How to Use</h3>
             <p><strong>1. Record Voice:</strong> Click "Start Recording", speak Afan Oromo, then "Stop"</p>
             <p><strong>2. Upload File:</strong> Select an audio file and click "Convert File"</p>
             <p><strong>3. Get Text:</strong> Wait for conversion to Qubee script</p>
             <p><strong>4. Copy:</strong> Use the "Copy Text" button to copy the result</p>
-            <p class="language-note"><strong>Note:</strong> This converts Afan Oromo speech to Qubee (Latin-based) text using ResNet-18 AI model.</p>
         </div>
     </div>
 
@@ -391,7 +330,7 @@
                 recordBtn.disabled = true;
                 stopBtn.disabled = true;
                 recordStatus.textContent = message || '🔄 Processing audio...';
-                recordStatus.className = 'processing';
+                recordStatus.className = '';
             } else {
                 recordBtn.disabled = false;
                 stopBtn.disabled = true;
@@ -630,7 +569,7 @@
             try {
                 await navigator.clipboard.writeText(text);
                 const originalText = copyBtn.innerHTML;
-                copyBtn.innerHTML = '<span class="icon">✅</span> Copied!';
+                copyBtn.innerHTML = '<span>✅</span> Copied!';
                 copyBtn.style.background = '#28a745';
                 
                 setTimeout(() => {
@@ -653,12 +592,11 @@
             checkServerConnection();
             checkMicrophonePermission();
             
-            // Update status every 30 seconds
-            setInterval(checkModelStatus, 30000);
-            setInterval(checkServerConnection, 30000);
-            
             console.log('Qubee Voice Converter loaded');
         });
     </script>
 </body>
 </html>
+EOF
+
+echo "✅ Template created at: voice_app/templates/index.html"
