@@ -7,5 +7,4 @@ urlpatterns = [
     path('upload/', views.upload_voice, name='upload_voice'),
     path('status/', views.model_status, name='model_status'),
     path('test/', views.test_connection, name='test_connection'),
-    path('health/', views.health_check, name='health_check'),  # Add this
 ]
