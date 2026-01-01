@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 import soundfile as sf
 from PIL import Image
+import warnings
+warnings.filterwarnings('ignore')
 
 class VoiceToTextModel:
     def __init__(self):
@@ -59,14 +61,20 @@ class VoiceToTextModel:
             print(f"❌ ERROR loading model: {e}")
             sys.exit(1)
     
-    def load_audio(self, audio_path):
-        """Load audio file"""
+    def load_audio_any_format(self, audio_path):
+        """Load audio from ANY format including AAC"""
         try:
-            # Try librosa
-            audio, sr = librosa.load(audio_path, sr=16000, mono=True)
-            return audio, sr
-        except:
-            # Try soundfile
+            print(f"🔊 Loading audio: {audio_path}")
+            
+            # Method 1: Try librosa with all backends
+            try:
+                audio, sr = librosa.load(audio_path, sr=16000, mono=True)
+                print(f"✅ Loaded with librosa, SR: {sr}, Length: {len(audio)/sr:.2f}s")
+                return audio, sr
+            except Exception as e:
+                print(f"⚠️ Librosa failed: {e}")
+            
+            # Method 2: Try soundfile
             try:
                 audio, sr = sf.read(audio_path)
                 if len(audio.shape) > 1:
@@ -74,16 +82,100 @@ class VoiceToTextModel:
                 if sr != 16000:
                     audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
                     sr = 16000
+                print(f"✅ Loaded with soundfile, SR: {sr}, Length: {len(audio)/sr:.2f}s")
                 return audio, sr
             except Exception as e:
-                print(f"❌ Audio load error: {e}")
-                raise
+                print(f"⚠️ Soundfile failed: {e}")
+            
+            # Method 3: Try ffmpeg/pydub (install: pip install pydub)
+            try:
+                from pydub import AudioSegment
+                
+                # Determine file type
+                file_ext = os.path.splitext(audio_path)[1].lower()
+                
+                if file_ext == '.aac':
+                    audio_seg = AudioSegment.from_file(audio_path, format="aac")
+                elif file_ext == '.mp3':
+                    audio_seg = AudioSegment.from_file(audio_path, format="mp3")
+                elif file_ext == '.m4a':
+                    audio_seg = AudioSegment.from_file(audio_path, format="m4a")
+                else:
+                    audio_seg = AudioSegment.from_file(audio_path)
+                
+                # Convert to numpy
+                samples = np.array(audio_seg.get_array_of_samples())
+                sr = audio_seg.frame_rate
+                
+                # Convert to float32 and normalize
+                if audio_seg.sample_width == 2:
+                    samples = samples.astype(np.float32) / 32768.0
+                elif audio_seg.sample_width == 1:
+                    samples = samples.astype(np.float32) / 128.0
+                    samples = samples - 1.0
+                
+                # Resample if needed
+                if sr != 16000:
+                    samples = librosa.resample(samples, orig_sr=sr, target_sr=16000)
+                    sr = 16000
+                
+                print(f"✅ Loaded with pydub, SR: {sr}, Length: {len(samples)/sr:.2f}s")
+                return samples, sr
+                
+            except Exception as e:
+                print(f"⚠️ Pydub failed: {e}")
+                # Try to install pydub
+                import subprocess
+                try:
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", "pydub"])
+                    print("✅ Installed pydub, trying again...")
+                    from pydub import AudioSegment
+                    audio_seg = AudioSegment.from_file(audio_path)
+                    samples = np.array(audio_seg.get_array_of_samples())
+                    sr = audio_seg.frame_rate
+                    if sr != 16000:
+                        samples = librosa.resample(samples.astype(np.float32), orig_sr=sr, target_sr=16000)
+                        sr = 16000
+                    return samples, sr
+                except:
+                    pass
+            
+            # Method 4: Try raw binary reading for WAV files
+            try:
+                with open(audio_path, 'rb') as f:
+                    data = f.read()
+                
+                # Check if it's a WAV file (starts with 'RIFF')
+                if data[:4] == b'RIFF':
+                    import wave
+                    with wave.open(audio_path, 'rb') as wav:
+                        sr = wav.getframerate()
+                        frames = wav.readframes(wav.getnframes())
+                        audio = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+                        
+                        if wav.getnchannels() == 2:
+                            audio = audio.reshape(-1, 2).mean(axis=1)
+                        
+                        if sr != 16000:
+                            audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
+                            sr = 16000
+                        
+                        print(f"✅ Loaded raw WAV, SR: {sr}, Length: {len(audio)/sr:.2f}s")
+                        return audio, sr
+            except:
+                pass
+            
+            raise Exception(f"Could not load audio file: {audio_path}")
+            
+        except Exception as e:
+            print(f"❌ All audio loading methods failed: {e}")
+            raise
     
     def create_spectrogram(self, audio, sr):
         """Create spectrogram image"""
         try:
             # Ensure minimum length
-            if len(audio) < sr:
+            if len(audio) < sr:  # Less than 1 second
                 padding = sr - len(audio)
                 audio = np.pad(audio, (0, padding), mode='constant')
             
@@ -116,7 +208,9 @@ class VoiceToTextModel:
     def predict_letter(self, audio_path):
         """Predict single letter"""
         try:
-            audio, sr = self.load_audio(audio_path)
+            print(f"🔤 Predicting letter from: {os.path.basename(audio_path)}")
+            
+            audio, sr = self.load_audio_any_format(audio_path)
             img = self.create_spectrogram(audio, sr)
             
             input_tensor = self.transform(img).unsqueeze(0).to(self.device)
@@ -124,75 +218,39 @@ class VoiceToTextModel:
             with torch.no_grad():
                 output = self.model(input_tensor)
             
+            # Get probabilities
             probs = torch.nn.functional.softmax(output, dim=1)
-            _, pred_idx = torch.max(probs, 1)
+            probs_np = probs.cpu().numpy()[0]
+            
+            # Get top 3 predictions
+            top3_idx = np.argsort(probs_np)[-3:][::-1]
+            top3_probs = probs_np[top3_idx]
             
             letters = "abcdefghijklmnopqrstuvwxyz"
-            letter_idx = pred_idx.item()
             
-            if 0 <= letter_idx < len(letters):
-                return letters[letter_idx]
+            print("📊 Top 3 predictions:")
+            for i, (idx, prob) in enumerate(zip(top3_idx, top3_probs)):
+                if 0 <= idx < len(letters):
+                    print(f"  {i+1}. '{letters[idx]}' ({prob*100:.1f}%)")
+            
+            # Return best prediction
+            best_idx = top3_idx[0]
+            if 0 <= best_idx < len(letters):
+                letter = letters[best_idx]
+                confidence = top3_probs[0] * 100
+                print(f"✅ Best: '{letter}' ({confidence:.1f}% confidence)")
+                return letter
             return "?"
             
         except Exception as e:
             print(f"❌ Letter prediction error: {e}")
             return "?"
     
-    def predict_word_simple(self, audio_path):
-        """Simple word prediction using fixed segments"""
-        try:
-            audio, sr = self.load_audio(audio_path)
-            
-            # Fixed segment approach: 0.3 seconds per letter
-            segment_duration = 0.3  # seconds
-            segment_samples = int(segment_duration * sr)
-            
-            # Don't segment if audio is short
-            if len(audio) <= segment_samples * 2:
-                return self.predict_letter(audio_path)
-            
-            # Calculate how many segments
-            max_segments = min(10, len(audio) // segment_samples)  # Max 10 letters
-            
-            if max_segments < 2:
-                return self.predict_letter(audio_path)
-            
-            predicted_letters = []
-            
-            for i in range(max_segments):
-                start = i * segment_samples
-                end = start + segment_samples
-                segment = audio[start:end]
-                
-                # Save segment
-                import tempfile
-                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-                    temp_path = f.name
-                    sf.write(temp_path, segment, sr)
-                
-                try:
-                    letter = self.predict_letter(temp_path)
-                    if letter != "?":
-                        predicted_letters.append(letter)
-                finally:
-                    if os.path.exists(temp_path):
-                        os.unlink(temp_path)
-            
-            if not predicted_letters:
-                return self.predict_letter(audio_path)
-            
-            word = ''.join(predicted_letters)
-            print(f"✅ Word: '{word}'")
-            return word
-            
-        except Exception as e:
-            print(f"❌ Word prediction error: {e}")
-            return self.predict_letter(audio_path)
-    
     def predict(self, audio_path):
-        """Main prediction - tries to predict word"""
-        return self.predict_word_simple(audio_path)
-    
-    def predict_sequence(self, audio_path, segment_duration=0.3):
-        """Alias for predict_word_simple"""
-        return self.predict_word_simple(audio_path)
+        """Main prediction - tries to predict word from full audio"""
+        try:
+            print(f"🎯 Predicting from: {os.path.basename(audio_path)}")
+            return self.predict_letter(audio_path)
+        except Exception as e:
+            print(f"❌ Prediction error: {e}")
+            return "error"

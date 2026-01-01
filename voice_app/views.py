@@ -97,94 +97,52 @@ def convert_voice(request):
     if not MODEL_LOADED:
         return JsonResponse({
             'success': False,
-            'error': 'Voice model not loaded. Please check server logs.',
-            'text': '',
-            'timestamp': time.time()
+            'error': 'Model not loaded',
+            'text': ''
         }, status=500)
     
-    start_time = time.time()
-    
-    # Check for audio file
     if request.method == 'POST' and 'audio_data' in request.FILES:
         audio_file = request.FILES['audio_data']
         
-        # File information
-        file_info = {
-            'name': audio_file.name,
-            'size': audio_file.size,
-            'type': audio_file.content_type,
-            'received_at': time.strftime('%Y-%m-%d %H:%M:%S')
-        }
+        # Save to temp file as WAV (not AAC)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as f:
+            for chunk in audio_file.chunks():
+                f.write(chunk)
+            temp_path = f.name
         
-        print(f"🎤 Received voice recording: {file_info}")
+        print(f"🎤 Processing recording: {temp_path}")
         
-        # Save to temporary file
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.aac') as f:
-                for chunk in audio_file.chunks():
-                    f.write(chunk)
-                temp_path = f.name
+            # Convert to WAV if needed
+            temp_path = self.ensure_wav_format(temp_path)
             
-            print(f"💾 Saved to temporary file: {temp_path}")
+            # Predict
+            text = model.predict(temp_path)
             
-            # Process with model
-            print("🔄 Processing audio with ResNet-18 model...")
-            
-            # Try sequence prediction first
-            try:
-                text = model.predict_sequence(temp_path, segment_duration=0.5)
-                if not text or text == "?" or len(text) < 1:
-                    text = model.predict(temp_path)
-            except:
-                text = model.predict(temp_path)
-            
-            processing_time = time.time() - start_time
-            
-            print(f"✅ Prediction completed in {processing_time:.2f} seconds")
-            print(f"📝 Result: '{text}'")
-            
-            # Clean up temporary file
-            try:
+            # Cleanup
+            if os.path.exists(temp_path):
                 os.unlink(temp_path)
-                print(f"🗑️ Cleaned up temporary file")
-            except:
-                pass
+            
+            print(f"✅ Result: '{text}'")
             
             return JsonResponse({
                 'success': True,
-                'text': text,
-                'type': 'voice_recording',
-                'processing_time': round(processing_time, 2),
-                'model_type': 'ResNet-18',
-                'timestamp': time.time()
+                'text': text
             })
             
         except Exception as e:
-            processing_time = time.time() - start_time
-            error_msg = f"Error processing audio: {str(e)}"
-            print(f"❌ {error_msg}")
-            
-            # Clean up on error
-            if 'temp_path' in locals() and os.path.exists(temp_path):
-                try:
-                    os.unlink(temp_path)
-                    print(f"🗑️ Cleaned up temporary file after error")
-                except:
-                    pass
-            
+            print(f"❌ Error: {e}")
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
             return JsonResponse({
                 'success': False,
-                'error': error_msg,
-                'text': '',
-                'processing_time': round(processing_time, 2),
-                'timestamp': time.time()
+                'error': str(e),
+                'text': ''
             }, status=500)
     
     return JsonResponse({
         'success': False,
-        'error': 'No audio data received.',
-        'text': '',
-        'timestamp': time.time()
+        'error': 'No audio received'
     }, status=400)
 
 @csrf_exempt
