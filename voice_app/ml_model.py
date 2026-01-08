@@ -32,7 +32,7 @@ class VoiceToTextModel:
     
     def load_model(self):
         """Load your trained ResNet-18 model"""
-        model_path = Path("media/models/qubee_voice_model.pth")
+        model_path = Path("media/models/afan_oromo)_letter_classifier.keras")
         
         if not model_path.exists():
             print(f"❌ ERROR: Model not found at {model_path}")
